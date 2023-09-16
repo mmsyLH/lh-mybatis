@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<mapper namespace="asia.lhweb.mapper.MonsterMapper">
+    <select id="getMonsterById" resultType="asia.lhweb.entity.Monster">
+        select * from monster where id=?
+    </select>
+</mapper>
