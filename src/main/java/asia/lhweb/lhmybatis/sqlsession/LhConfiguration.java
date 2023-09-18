@@ -1,5 +1,7 @@
 package asia.lhweb.lhmybatis.sqlsession;
 
+import asia.lhweb.lhmybatis.config.Function;
+import asia.lhweb.lhmybatis.config.MapperBean;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -9,7 +11,9 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -89,5 +93,71 @@ public class LhConfiguration {
             e.printStackTrace();
         }
         return connection;
+    }   
+
+    /**
+     * 读取XXXMapper.xml,能够创建MapperBean的对象
+     *
+     * XXXMapper.xml如果在resources下就直接传文件名就可以了
+     * @param path 就是xml的路径+文件名  是从类的加载路径计算的
+     * @return {@link MapperBean}
+     */
+    public MapperBean readMapper(String path){
+        MapperBean mapperBean = new MapperBean();
+        //获取到xml对应的输入流
+        InputStream resourceAsStream = loader.getResourceAsStream(path);
+        SAXReader saxReader = new SAXReader();
+        try {
+            Document document = saxReader.read(resourceAsStream);
+            /**
+             * <mapper namespace="asia.lhweb.mapper.MonsterMapper">
+             *     <select id="getMonsterById" resultType="asia.lhweb.entity.Monster">
+             *         select * from monster where id=?
+             *     </select>
+             * </mapper>
+             */
+            Element rootElement = document.getRootElement();//得到文件的root元素
+            //rootElement=mapper
+            //设置mapperBean的InterfaceName 就是接口的全路径
+            String namespace = rootElement.attributeValue("namespace").trim();
+            mapperBean.setInterfaceName(namespace);
+            //得到rootElement的迭代器
+            Iterator rootIterator = rootElement.elementIterator();
+            //保存接口信息
+            ArrayList<Function> functions = new ArrayList<>();
+            //开始遍历 生成function
+            while (rootIterator.hasNext()) {
+                /**
+                 * 相当于拿到
+                 * <select id="getMonsterById" resultType="asia.lhweb.entity.Monster">
+                 *         select * from monster where id=?
+                 *     </select>
+                 */
+                //取出一个子元素
+                Element element = (Element) rootIterator.next();//dom4j下的
+                // System.out.println("element-------------------:"+element);
+                Function function = new Function();
+                //设置属性
+                String sqlType = element.getName().trim();
+                String funName = element.attributeValue("id");
+                String resultType = element.attributeValue("resultType");
+                String sql = element.getText().trim();
+
+                function.setFuncName(funName);
+                function.setSql(sql);
+                function.setSqlType(sqlType);
+                //反射创建对象
+                Class<?> aClass = Class.forName(resultType);
+                Object instance = aClass.newInstance();
+                function.setResultType(instance);
+                functions.add(function);
+            }
+            mapperBean.setFunctions(functions);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+
+        return mapperBean;
     }
 }
